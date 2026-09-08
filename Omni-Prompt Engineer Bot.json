@@ -1,0 +1,229 @@
+{
+  "name": "Omni-Prompt Engineer Bot",
+  "nodes": [
+    {
+      "parameters": {
+        "chatId": "={{$node[\"Telegram Trigger\"].json[\"message\"][\"chat\"][\"id\"]}}",
+        "text": "={{$json[\"choices\"][0][\"message\"][\"content\"]}}",
+        "additionalFields": {
+          "parse_mode": "Markdown",
+          "reply_to_message_id": "={{$node[\"Telegram Trigger\"].json[\"message\"][\"message_id\"]}}"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        -880,
+        -432
+      ],
+      "id": "38798f3b-563a-4c21-abed-b014965042f9",
+      "name": "Push Result",
+      "webhookId": "52e3467d-8a4a-497e-9d55-b1bacd60e5a8",
+      "credentials": {
+        "telegramApi": {
+          "id": "HADxTHcNea0MbngV",
+          "name": "Prompt Engineer Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer [API KEY]"
+            },
+            {
+              "name": "HTTP-Referer",
+              "value": "https://homelab.local"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "google/gemini-3.1-pro-preview"
+            },
+            {
+              "name": "messages",
+              "value": "={{ [ { \"role\": \"system\", \"content\": \"You are a backend processor, not a chatbot. Your output is piped directly to a production API.\\n\\nSTRICT OUTPUT PROTOCOL:\\n1. ## REASONING\\n   - (Bullet points only)\\n2. ## HIGH-LEVEL PROMPT\\n   - (The optimized prompt inside a code block)\\n\\nNEGATIVE CONSTRAINTS:\\n- DO NOT say 'Here is the prompt'.\\n- DO NOT provide a conclusion.\\n- DO NOT use conversational filler.\"}, { \"role\": \"user\", \"content\": $node[\"Telegram Trigger\"].json[\"message\"][\"text\"] } ] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -1104,
+        -336
+      ],
+      "id": "41fa2f2c-824d-43be-a18f-0bc92338c2f4",
+      "name": "OpenRouter API",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "={{$node[\"Telegram Trigger\"].json[\"message\"][\"chat\"][\"id\"]}}",
+        "text": "⚠️ **System Error:** OpenRouter API failed to respond.\n\n`{{ $json.error.message || \"Unknown Error\" }}`",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        -880,
+        -240
+      ],
+      "id": "a2323675-390f-4434-896b-7670db56722d",
+      "name": "Notify Error",
+      "webhookId": "e304e66e-31e9-4190-a387-85187b758200",
+      "credentials": {
+        "telegramApi": {
+          "id": "HADxTHcNea0MbngV",
+          "name": "Prompt Engineer Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendChatAction",
+        "chatId": "={{$node[\"Telegram Trigger\"].json[\"message\"][\"chat\"][\"id\"]}}"
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        -1328,
+        -336
+      ],
+      "id": "0792336c-c77a-4c02-ae1a-be8509d0e462",
+      "name": "Show Typing Status",
+      "webhookId": "b9e7f7c1-1379-41ae-bb0c-dd906283c346",
+      "credentials": {
+        "telegramApi": {
+          "id": "HADxTHcNea0MbngV",
+          "name": "Prompt Engineer Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"queued\", \"message_id\": {{ $json.message.message_id }} }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -1552,
+        -336
+      ],
+      "id": "13c98e30-426a-4935-8e01-8ede3d697dc9",
+      "name": "Ack (Release Connection)"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1776,
+        -336
+      ],
+      "id": "7b51e5d1-d5fb-4887-bd56-ed8a78cc74ba",
+      "name": "Telegram Trigger",
+      "webhookId": "omni-engineer-v3",
+      "credentials": {
+        "telegramApi": {
+          "id": "HADxTHcNea0MbngV",
+          "name": "Prompt Engineer Bot"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "OpenRouter API": {
+      "main": [
+        [
+          {
+            "node": "Push Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Show Typing Status": {
+      "main": [
+        [
+          {
+            "node": "OpenRouter API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ack (Release Connection)": {
+      "main": [
+        [
+          {
+            "node": "Show Typing Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Ack (Release Connection)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "010fe0dc-e09b-407d-a449-3ea8d389fb2e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bd1d45be773d3fd37b05ff49cbd93e4ab985ff1232b71162722c74ef6450c4dd"
+  },
+  "nodeGroups": [],
+  "id": "nKDXOjlWM4rTeoxR",
+  "tags": [
+    {
+      "updatedAt": "2025-12-24T00:36:30.958Z",
+      "createdAt": "2025-12-24T00:36:30.958Z",
+      "id": "2GTBrsRZBfSAagcP",
+      "name": "ready"
+    }
+  ]
+}
